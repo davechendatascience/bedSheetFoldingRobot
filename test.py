@@ -120,8 +120,12 @@ def extract_mask_compare(image_path):
                 result.save(filename= "results/" + image_name.replace('.jpg', "_output1.jpg"))
                 box = obj["box"]
     if box != None:
-        input_point = np.array([[(box["x1"] + box["x2"])//2, (box["y1"]+box["y2"])//2]])
-        input_label = np.array([1])
+        # find the pixel point in the bounding box where the pixel has the most common color
+        input_point = np.array([[(box["x1"] + box["x2"])//2 - (box["x1"] + box["x2"])//8, (box["y1"]+box["y2"])//2 - (box["y1"]+box["y2"])//8], 
+                                [(box["x1"] + box["x2"])//2 - (box["x1"] + box["x2"])//8, (box["y1"]+box["y2"])//2 + (box["y1"]+box["y2"])//8],
+                                [(box["x1"] + box["x2"])//2 + (box["x1"] + box["x2"])//8, (box["y1"]+box["y2"])//2 - (box["y1"]+box["y2"])//8],
+                                [(box["x1"] + box["x2"])//2 + (box["x1"] + box["x2"])//8, (box["y1"]+box["y2"])//2 + (box["y1"]+box["y2"])//8]])
+        input_label = np.array([1, 1, 1, 1])
         # 載入圖像
         image = cv2.imread(image_path)
         if image is None:
