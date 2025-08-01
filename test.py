@@ -18,7 +18,7 @@ from ultralytics import YOLO
 # 載入分割模型
 model = YOLO("yolov8m-seg.pt")
 
-predictor = SAM2ImagePredictor(build_sam2(model_cfg, checkpoint, "cpu"))
+predictor = SAM2ImagePredictor(build_sam2(model_cfg, checkpoint))
 
 def get_boundary_points_and_center(mask):
     """獲取物體的上下左右四個邊界點和重心"""
