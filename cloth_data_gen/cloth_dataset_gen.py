@@ -6,9 +6,9 @@ from mathutils import Vector, Euler
 
 # Parameters
 output_dir = "./output"
-n_samples = 10000
-length_range = (1.5, 3.0)
-width_range = (1.0, 2.5)
+n_samples = 3000
+length_range = (3.5, 5.0)
+width_range = (3.5, 5.0)
 res = 40  # Subdivisions per side
 
 def ensure_dirs():
@@ -62,22 +62,21 @@ def bend_cloth(obj):
     bend.limits = (0, 1)
     bend.deform_axis = random.choice(['X', 'Y'])
 
-def fold_cloth(obj):
-    disp = obj.modifiers.new(name="Fold", type='DISPLACE')
-    tex = bpy.data.textures.new("FoldTex", type='CLOUDS')
+def add_random_crease(obj):
+    disp = obj.modifiers.new(name="RandCrease", type='DISPLACE')
+    tex = bpy.data.textures.new("RandCreaseTex", type='CLOUDS')
+    tex.noise_scale = random.uniform(0.2, 0.6) # Random frequency
     disp.texture = tex
-    disp.strength = random.uniform(0.12, 0.33)
+    disp.strength = random.uniform(0.05, 0.2) # Random crease strength
+    disp.mid_level = 0.5
+    disp.direction = 'NORMAL'
 
-def curve_cloth(obj):
-    # Apply a random bend (curve) to the cloth around a random axis and with a random angle
-    bend = obj.modifiers.new(name="CurveBend", type='SIMPLE_DEFORM')
+def add_bend_fold(obj):
+    bend = obj.modifiers.new(name="RandBend", type='SIMPLE_DEFORM')
     bend.deform_method = 'BEND'
-    # Choose a random bending axis (X, Y, or Z)
-    bend.deform_axis = random.choice(['X', 'Y', 'Z'])
-    # Apply a random angle (positive or negative bend)
-    bend.angle = np.radians(random.uniform(-100, 100))
-    # Optionally: position the object for a visible arch (move origin), or leave as default
-    bend.origin = None
+    bend.deform_axis = random.choice(['X', 'Y'])
+    bend.angle = np.radians(random.uniform(-25, 25))
+    bend.limits = (random.uniform(0, 0.5), random.uniform(0.5, 1))
 
 def set_black_background_with_min_fill(strength=0.03):
     world = bpy.data.worlds['World']
@@ -147,14 +146,9 @@ def randomize_world_background():
 
 
 def random_deform(obj):
-    # Existing random bend/fold
-    if random.random() < 0.5:
-        bend_cloth(obj)
-    if random.random() < 0.6:
-        fold_cloth(obj)
-    # Add random curving with 50% probability
-    if random.random() < 0.5:
-        curve_cloth(obj)
+    for i in range(10):
+        add_random_crease(obj)
+        add_bend_fold(obj)
 
 def get_corner_indices(grid_res):
     n = grid_res
@@ -164,6 +158,17 @@ def get_corner_indices(grid_res):
         n * n - 1,     # Top-left
         n * n - 2        # Top-right
     ]
+
+def add_fill_light():
+    light_data = bpy.data.lights.new(name="FillLight", type='AREA')
+    light_obj = bpy.data.objects.new(name="FillLightObj", object_data=light_data)
+    bpy.context.collection.objects.link(light_obj)
+    light_obj.location = (3, -4, 4)
+    light_data.energy = 200
+    light_data.color = (1.0, 1.0, 1.0)
+    light_data.shape = 'SQUARE'
+    light_data.size = 2.5
+    return light_obj
 
 def apply_random_rotation(obj):
     # Apply a random 3D rotation
@@ -213,10 +218,19 @@ def render_sample(i, cloth, cam, indices):
     # Save 3D and 2D (pixel-space) keypoints
     with open(f"{output_dir}/keypoints/cloth_{i:04d}.txt", "w") as f:
         f.write("x_world,y_world,z_world,x_pixel,y_pixel\n")
+        # --- Modifier-aware robust keypoint export ---
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        cloth_eval = cloth.evaluated_get(depsgraph)
+        mesh_eval = cloth_eval.to_mesh()
+
         for idx in indices:
-            global_co = cloth.matrix_world @ cloth.data.vertices[idx].co
+            vertex = mesh_eval.vertices[idx]
+            global_co = cloth_eval.matrix_world @ vertex.co
             px, py = world_to_pixel(global_co, cam, scene)
             f.write(f"{global_co.x:.4f},{global_co.y:.4f},{global_co.z:.4f},{px},{py}\n")
+
+        cloth_eval.to_mesh_clear()
+
 
 def main():
     ensure_dirs()
@@ -229,13 +243,13 @@ def main():
         random_deform(cloth)
         apply_random_rotation(cloth)
         cam = setup_camera()
-        # add_random_sunlight()
-        steady_light_obj = add_steady_light()  # <<<<<<
+        sun_obj = add_random_sunlight()  # <<<<<<
         # (optionally: set_black_background_with_min_fill() here)
         set_black_background_with_min_fill(0.02)  # or 0.05 if too harsh
         indices = get_corner_indices(res)
         render_sample(i, cloth, cam, indices)
-        bpy.data.objects.remove(steady_light_obj, do_unlink=True)  # <<<<<<
+        bpy.data.objects.remove(sun_obj, do_unlink=True)
+        # bpy.data.objects.remove(light_obj_fill, do_unlink=True)
 
 
     print("Dataset generation complete!")
