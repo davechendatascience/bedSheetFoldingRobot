@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from .utils import *
 
 class DoubleConv(nn.Module):
     """(Conv => BN => ReLU) * 2"""
@@ -72,3 +73,14 @@ class UNet(nn.Module):
         seg = self.decoder(bottleneck, skips)  # (B, out_channels, H, W)
         seg = torch.squeeze(seg, dim=1)
         return seg
+
+if __name__ == "__main__":
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    keypoint_net = UNet(in_channels=3, out_channels=4)
+    keypoint_net = keypoint_net.to(device)
+
+    x = torch.randn(2, 3, 128, 128).to(device)
+    out = keypoint_net(x)
+    print(out.shape)
+    out = soft_argmax(out)
+    print("Final output shape:", out.shape)
