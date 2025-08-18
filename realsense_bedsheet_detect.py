@@ -7,6 +7,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 import time, os
 import torch
+from shared.functions import *
 
 # init device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -110,26 +111,6 @@ def extract_mask_compare(image):
     masked_image[mask_all==0] = 0
     return mask_all
 
-def depth_map_to_image(depth_map):
-    """
-    Convert a raw depth map (np.ndarray, any dtype, possibly >255) into an 8-bit image.
-    Handles missing/zero values gracefully.
-    Returns an uint8 grayscale image (0=far, 255=near).
-    """
-    valid = depth_map > 0
-    if np.any(valid):
-        dmin = np.min(depth_map[valid])
-        dmax = np.max(depth_map)
-        # Avoid division by zero
-        if dmax > dmin:
-            depth_img = ((depth_map - dmin) / (dmax - dmin) * 255)
-        else:
-            depth_img = np.zeros_like(depth_map)
-    else:
-        depth_img = np.zeros_like(depth_map)
-    depth_img = np.clip(depth_img, 0, 255).astype(np.uint8)
-    return depth_img
-
 def detect_pipeline(color_image, depth_image):
     c_copy = color_image.copy(); d_copy = depth_image.copy()
     mask = extract_mask_compare(color_image)
@@ -144,10 +125,10 @@ def detect_pipeline(color_image, depth_image):
             outputs = keypoint_model(batch_image)
             kp = outputs[0].cpu().numpy()
             kp = kp[0,:,:]
-            for i in range(len(kp)):
-                for j in range(len(kp[0])):
-                    if kp[i,j] > 0.003:
-                        cv2.circle(color_image_resized, (j, i), 1, (255,0,0), -1)
+            points = thresholded_locations(kp, 0.003)
+            for p in points:
+                i, j = p
+                cv2.circle(color_image_resized, (int(j), int(i)), 3, (255,0,0), -1)
         color_image = cv2.resize(color_image_resized, (W, H), interpolation=cv2.INTER_AREA)
         depth_image = cv2.resize(depth_image_resized, (W, H), interpolation=cv2.INTER_AREA)
     return color_image, depth_image
@@ -187,3 +168,26 @@ try:
     root.mainloop()
 finally:
     pipeline.stop()
+
+# import matplotlib.pyplot as plt
+
+# image_dir = "realsense/test_bin/"
+# orig_hw = None
+# for f in os.listdir(image_dir):
+#     if f[:6] == "color_":
+#         fnumber = f[6:]; fnumber = fnumber[:-4]
+#         depth_f = "depth_raw_" + fnumber + ".npy"
+#         color_f = "color_" + fnumber + ".png"
+#         depth_color_f = "depth_color_" + fnumber + ".png"
+#         # Example usage:
+#         depth_map = np.load(image_dir + depth_f)
+#         # Now you can save with cv2.imwrite or display with OpenCV/Matplotlib
+#         color_img = cv2.imread(image_dir+color_f)
+#         depth_image = depth_map_to_image(depth_map)
+#         depth_image =  cv2.cvtColor(depth_image, cv2.COLOR_GRAY2BGR)
+#         print(color_img.shape, depth_image.shape)
+#         c, depth_image = detect_pipeline(color_img, depth_image)
+#         plt.imshow(c)
+#         plt.show()
+#         plt.imshow(depth_image)
+#         plt.show()
