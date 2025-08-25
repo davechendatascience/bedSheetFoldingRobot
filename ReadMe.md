@@ -8,4 +8,4 @@
 
 預訓練執行 notebook: keypoint_detection_model_training.ipynb
 
-被單 depth image 模型訓練 執行: depth_keypoint_detection_model_training.ipynb
+被單 depth image 模型訓練 執行 (讀取一個 VIA 標注的專案): depth_keypoint_detection_model_training.ipynb

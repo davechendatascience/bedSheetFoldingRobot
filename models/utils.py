@@ -3,19 +3,33 @@ import torch.nn.functional as F
 from torch import nn
 
 class YoloBackbone(nn.Module):
-    def __init__(self, backbone_seq, selected_indices=[4, 7, 9]):
+    def __init__(self, backbone_seq, selected_indices=None):
         super().__init__()
         self.backbone = backbone_seq
-        self.selected_indices = selected_indices
+        if selected_indices is None:
+            # By default, collect all intermediate outputs
+            self.selected_indices = list(range(len(backbone_seq)))
+        else:
+            self.selected_indices = selected_indices
 
     def forward(self, x):
         feats = []
         out = x
         for i, layer in enumerate(self.backbone):
+            # Check if the layer is a Concat layer
+            if layer.__class__.__name__.lower().startswith('concat'):
+                # If not already a list/tuple, wrap it
+                if not isinstance(out, (list, tuple)):
+                    out = [out]
             out = layer(out)
             if i in self.selected_indices:
-                feats.append(out)
+                # If out is a list (as in some YOLO features), add all, else add single
+                if isinstance(out, (list, tuple)):
+                    feats.extend(out)
+                else:
+                    feats.append(out)
         return feats
+
 
 class MultiScaleFusion(nn.Module):
     def __init__(self, in_channels_list, out_channels):
@@ -70,4 +84,5 @@ def spatial_softmax(heatmap):
     heatmap_flat = heatmap.view(B, -1)
     softmax_flat = F.softmax(heatmap_flat, dim=1)
     return softmax_flat.view(B, 1, H, W)
+    # return heatmap
 
