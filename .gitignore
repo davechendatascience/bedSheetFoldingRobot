@@ -156,6 +156,14 @@ processed_data/
 *.yaml
 *.yml
 
+# Keep configuration files
+!config_*.json
+!*.config.json
+
+# VIA project files (keep these)
+!via_proj/
+!via_proj/*.json
+
 # Image and video files
 *.jpg
 *.jpeg
@@ -214,8 +222,7 @@ temp/
 *.tmp
 *.temp
 
-# Configuration files with sensitive data
-config.ini
+# Configuration files with sensitive data (keep config files)
 secrets.json
 .env.local
 .env.production
@@ -232,3 +239,7 @@ realsense/realsense_data/
 realsense/realsense_data2/
 RGB-images-jpg/
 architecture_full.png
+
+# Documentation files (keep only README.md)
+*.md
+!README.md

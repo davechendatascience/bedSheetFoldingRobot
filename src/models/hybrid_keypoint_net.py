@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from ultralytics import YOLO
 from timm import create_model
-from .utils import *
+from ..utils.model_utils import *
 
 class PatchViTEncoder(nn.Module):
     def __init__(self, in_channels, fuse_channels, img_size=128, patch_size=16, vit_type='vit_base_patch16_224'):

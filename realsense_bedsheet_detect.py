@@ -25,8 +25,8 @@ allowed_classes = [1]  # 只要床單
 yolo_model_finetuned = YOLO(model_path)
 
 # 載入關鍵點模型
-from models.yolo_vit import HybridKeypointNet
-from models.utils import *
+from src.models import HybridKeypointNet
+from src.utils import *
 from ultralytics import YOLO
 # yolo vit
 yolo_model = YOLO('yolov8l.pt')

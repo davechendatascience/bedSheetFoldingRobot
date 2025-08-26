@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import json
 from scipy.ndimage import label
 import cv2
 
@@ -73,3 +74,78 @@ def extract_mask_compare(image, yolo_model_finetuned, allowed_classes):
     masked_image = orig_img.copy()
     masked_image[mask_all==0] = 0
     return mask_all
+
+def get_keypoints_for_image(image_filename, keypoints_data_src):
+    """
+    Get keypoints for a specific image from the VIA JSON file.
+    
+    Args:
+        image_filename: Name of the image file
+        keypoints_data_src: Path to the VIA JSON file
+    
+    Returns:
+        List of keypoint coordinates or None if not found
+    """
+    try:
+        with open(keypoints_data_src, 'r') as f:
+            data = json.load(f)
+        
+        # Find the image ID by filename
+        image_id = None
+        for fid, file_data in data['file'].items():
+            if file_data['fname'] == image_filename:
+                image_id = fid
+                break
+        
+        if image_id is None:
+            return None
+        
+        # Extract keypoints from metadata
+        keypoints = []
+        for metadata_id, metadata in data['metadata'].items():
+            if metadata['vid'] == image_id:
+                # Extract coordinates from xy field
+                xy = metadata['xy']
+                if len(xy) >= 3:  # [shape_type, x, y, ...]
+                    x = xy[1]
+                    y = xy[2]
+                    keypoints.append([x, y])
+        
+        return keypoints if keypoints else None
+        
+    except Exception as e:
+        print(f"Error loading keypoints for {image_filename}: {e}")
+        return None
+
+def resize_image_and_keypoints(image, keypoints, target_width, target_height):
+    """
+    Resize image and adjust keypoint coordinates accordingly.
+    
+    Args:
+        image: Input image
+        keypoints: List of keypoint coordinates [[x, y], ...]
+        target_width: Target width
+        target_height: Target height
+    
+    Returns:
+        Tuple of (resized_image, adjusted_keypoints)
+    """
+    if keypoints is None:
+        return image, None
+    
+    # Get original dimensions
+    orig_height, orig_width = image.shape[:2]
+    
+    # Resize image
+    resized_image = cv2.resize(image, (target_width, target_height))
+    
+    # Adjust keypoint coordinates
+    adjusted_keypoints = []
+    for kp in keypoints:
+        x, y = kp
+        # Scale coordinates
+        new_x = int(x * target_width / orig_width)
+        new_y = int(y * target_height / orig_height)
+        adjusted_keypoints.append([new_x, new_y])
+    
+    return resized_image, adjusted_keypoints
