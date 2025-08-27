@@ -3,13 +3,13 @@
 Quantized Depth Model Training Runner
 
 This script runs the depth keypoint model training with quantization enabled.
-It uses the existing depth_keypoint_model_training.py with quantization configurations.
+It uses the existing post_keypoint_detection_model_training.py with quantization configurations.
 """
 
 import sys
 import os
 import json
-from depth_keypoint_model_training import main_training_pipeline, DEFAULT_CONFIG
+from post_keypoint_detection_model_training import main_training_pipeline, DEFAULT_CONFIG
 
 def create_quantized_config():
     """Create configuration for quantized training using existing config file."""

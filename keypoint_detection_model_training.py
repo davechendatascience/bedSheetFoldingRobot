@@ -24,6 +24,7 @@ from ultralytics import YOLO
 # Import from the new src structure
 from shared.functions import *
 from src.models.hybrid_keypoint_net import HybridKeypointNet
+from src.models.efficient_keypoint_net import EfficientViTKeypointNet
 from src.utils.model_utils import (
     YoloBackbone, 
     batch_gaussian_blur, 

@@ -14,7 +14,7 @@ from datetime import datetime
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from depth_keypoint_model_training import main_training_pipeline, DEFAULT_CONFIG
+from post_keypoint_detection_model_training import main_training_pipeline, DEFAULT_CONFIG
 
 def run_optimal_training():
     """Run the optimal training configuration with all improvements."""

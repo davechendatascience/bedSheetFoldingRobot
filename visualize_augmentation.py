@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from depth_keypoint_model_training import (
+from post_keypoint_detection_model_training import (
     generate_dataset_data, 
     KeypointDataset, 
     MinimalAugmentation, 
