@@ -1,232 +1,206 @@
-# Bed Sheet Folding Robot - Keypoint Detection System
+# Bed Sheet Folding Robot - Keypoint Detection
 
-A comprehensive computer vision system for detecting keypoints on bed sheets to enable robotic folding operations. This project implements state-of-the-art deep learning models for precise keypoint detection using both RGB and depth data.
+A comprehensive keypoint detection system for bed sheet folding robots using deep learning and computer vision techniques.
 
 ## 🚀 Features
 
-- **Hybrid Architecture**: Combines YOLO backbone with Vision Transformer encoder for robust feature extraction
-- **Multiple Model Variants**: From lightweight to full-scale models for different deployment scenarios
-- **Quantization Support**: Post-training quantization (PTQ) and quantization-aware training (QAT) for efficient deployment
-- **Advanced Training Pipeline**: Comprehensive training with validation, monitoring, and early stopping
-- **Data Augmentation**: Extensive augmentation strategies including MixUp, Cutout, and Albumentations
-- **Active Learning**: Uncertainty sampling for improved training efficiency
-- **Model Export**: Support for ONNX and GGUF formats for deployment
+- **Hybrid Keypoint Detection Model**: YOLO + Vision Transformer architecture
+- **Two-Stage Training Pipeline**: Pretraining + Post-training optimization
+- **Optimized Training Pipeline**: With `torch.compile()`, early stopping, and mixup augmentation
+- **Real-time Inference**: Optimized for real-time bed sheet keypoint detection
+- **Comprehensive Data Processing**: YOLO segmentation + keypoint annotation pipeline
 
 ## 📁 Project Structure
 
 ```
 bedSheetFoldingRobot/
 ├── src/
-│   ├── models/
-│   │   ├── hybrid_keypoint_net.py      # Main hybrid architecture
-│   │   ├── efficient_keypoint_net.py   # Lightweight model variants
-│   │   └── __init__.py
-│   ├── training/
-│   │   └── training_utils.py
-│   └── utils/
-│       ├── quantization_utils.py       # Quantization utilities
-│       ├── model_utils.py              # Model utilities
-│       └── functions.py                # Shared functions
-├── models/                             # Trained models and checkpoints
-├── via_proj/                          # VIA annotation files
-├── RGB-images-jpg/                    # Training images
-├── realsense/                         # Depth data processing
-├── results/                           # Training results and visualizations
-├── post_keypoint_detection_model_training.py  # Main training pipeline
-├── run_optimal_training.py            # Training execution script
-├── run_quantized_depth_training.py    # Quantized training script
-├── config_quantization_fixed.json     # Quantization configuration
-└── requirements.txt                   # Python dependencies
+│   ├── models/                 # Model architectures
+│   │   ├── hybrid_keypoint_net.py
+│   │   └── efficient_keypoint_net.py
+│   ├── utils/                  # Utility functions
+│   │   ├── model_utils.py      # YOLO backbone and model utilities
+│   │   └── tensorrt_utils.py   # TensorRT conversion utilities (future)
+│   └── training/               # Training pipeline
+├── shared/                     # Shared functions and utilities
+├── models/                     # Trained models and YOLO weights
+├── data/                       # Dataset and annotations
+├── results/                    # Training results and visualizations
+├── keypoint_detection_model_training.py  # Stage 1: Pretraining script
+├── post_keypoint_detection_model_training.py  # Stage 2: Post-training script
+├── convert_to_tensorrt.py      # TensorRT conversion script (future)
+└── test_tensorrt_inference.py  # Performance benchmarking (future)
 ```
 
-## 🏗️ Model Architectures
+## 🛠️ Installation
 
-### HybridKeypointNet (Main Model)
-- **Backbone**: YOLOv8 with fine-tuned weights
-- **Encoder**: Vision Transformer for global context
-- **Decoder**: Multi-scale feature fusion
-- **Parameters**: ~103M parameters
-- **Use Case**: High-accuracy applications
-
-### Efficient Model Variants
-- **EfficientKeypointNet**: Optimized for speed
-- **UltraLightKeypointNet**: Minimal footprint
-- **MobileKeypointNet**: Mobile deployment
-- **EfficientViTKeypointNet**: Lightweight ViT variant
-
-## 🎯 Training Pipeline
-
-### Main Training Script: `post_keypoint_detection_model_training.py`
-
-This script provides a comprehensive training pipeline that integrates:
-- **Regular Training**: Full model training with advanced techniques
-- **Quantization Training**: Seamless QAT integration
-- **Validation & Monitoring**: Comprehensive evaluation
-- **Model Export**: Deployment-ready models
-
-#### Key Features:
-- **torch.compile()**: JIT compilation for performance
-- **Mixed Precision Training**: FP16 training with automatic mixed precision
-- **Active Learning**: Uncertainty sampling for efficient training
-- **Advanced Augmentation**: MixUp, Cutout, ColorJitter, GaussianNoise
-- **Learning Rate Scheduling**: Warmup and cosine annealing
-- **Early Stopping**: Prevents overfitting
-- **Gradient Clipping**: Stable training
-
-### Training Flow
-
-1. **Regular Training**:
-   ```bash
-   python post_keypoint_detection_model_training.py
-   ```
-   - Loads pretrained model (if available)
-   - Trains for 300 epochs (configurable)
-   - Saves to `models/keypoint_model_vit_post.pth`
-
-2. **Quantization Training** (if enabled):
-   - Automatically continues after regular training
-   - Loads from regular training result
-   - Trains for 50 epochs with quantization simulation
-   - Saves QAT model and final quantized model
-
-## ⚙️ Configuration
-
-### Default Configuration
-```python
-DEFAULT_CONFIG = {
-    "seed": 42,
-    "yolo_model_path": "models/yolo_finetuned/best.pt",
-    "keypoints_data_src": "via_proj/via_project_22Aug2025_16h07m06s.json",
-    "image_path": "RGB-images-jpg/",
-    "batch_size": 32,
-    "learning_rate": 3e-5,
-    "num_epochs": 300,
-    "model_save_path": "models/keypoint_model_vit_post.pth",
-    "use_quantization": False,
-    "qat_epochs": 50,
-    "qat_learning_rate": 5e-5,
-    # ... additional parameters
-}
-```
-
-### Quantization Configuration
-```json
-{
-    "use_quantization": true,
-    "qat_epochs": 50,
-    "qat_learning_rate": 5e-5,
-    "export_model": true,
-    "export_formats": ["onnx", "gguf"]
-}
-```
-
-## 🚀 Quick Start
-
-### 1. Environment Setup
+1. **Clone the repository:**
 ```bash
-# Activate your Python environment
-source ~/pytorch_env/bin/activate
+git clone <repository-url>
+cd bedSheetFoldingRobot
+```
 
-# Install dependencies
+2. **Install dependencies:**
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. Regular Training
+## 🎯 Quick Start
+
+### Stage 1: Pretraining
+
+First, you need to pretrain the model using the original training script:
+
 ```bash
-python post_keypoint_detection_model_training.py
+# Stage 1: Pretrain the model
+python keypoint_detection_model_training.py
 ```
 
-### 3. Training with Quantization
+This will:
+- Train the model from scratch on your dataset
+- Save the pretrained model to `models/keypoint_model_vit.pth`
+- Establish the baseline performance
+
+### Stage 2: Post-Training Optimization
+
+After pretraining, use the post-training script for optimization:
+
 ```bash
-# Edit config to enable quantization
-python post_keypoint_detection_model_training.py
+# Stage 2: Post-training with optimizations
+python post_keypoint_detection_model_training.py config_quantization_fixed.json
 ```
 
-### 4. Using Configuration Files
-```bash
-# For quantization training
-python run_quantized_depth_training.py
+**Configuration Options:**
+- `num_epochs`: Number of training epochs (default: 50)
+- `batch_size`: Batch size for training (default: 16)
+- `learning_rate`: Learning rate (default: 0.001)
+- `early_stopping_patience`: Early stopping patience (default: 10)
+- `use_mixup`: Enable mixup augmentation (default: true)
 
-# For optimal training
-python run_optimal_training.py
+## 🏗️ Model Architecture
+
+### Hybrid Keypoint Network
+- **Backbone**: YOLO11L-pose (first 12 layers)
+- **Head**: Vision Transformer for keypoint detection
+- **Output**: Heatmap-based keypoint predictions
+- **Input**: 128x128 RGB images
+- **Parameters**: ~100M parameters
+
+### Key Features
+- **torch.compile()**: Optimized training with PyTorch 2.0 compilation
+- **Early Stopping**: Automatic training termination on validation loss plateau
+- **Mixup Augmentation**: Improved generalization with mixup data augmentation
+- **Best Model Saving**: Automatically saves the best model based on validation loss
+
+## 📊 Performance
+
+### Training Optimizations
+- **torch.compile()**: ~20-30% faster training
+- **Mixed Precision**: FP16 training for memory efficiency
+- **Gradient Clipping**: Stable training with gradient clipping
+- **Learning Rate Scheduling**: Adaptive learning rate scheduling
+
+## 🔧 Configuration
+
+### Training Configuration (`config_quantization_fixed.json`)
+```json
+{
+    "model_name": "HybridKeypointNet",
+    "model_save_path": "models/keypoint_model_vit_post",
+    "pretrained_model_path": "models/keypoint_model_vit.pth",
+    "yolo_model_path": "models/yolo_finetuned/best.pt",
+    "keypoints_data_src": "via_proj/via_project_22Aug2025_16h07m06s.json",
+    "image_path": "RGB-images-jpg/",
+    "allowed_classes": [1],
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "num_epochs": 50,
+    "use_augmentation": true,
+    "use_mixup": true,
+    "early_stopping_patience": 10
+}
 ```
 
-## 📊 Model Performance
+## 📈 Training Pipeline
 
-### Training Features
-- **Loss Function**: KL divergence with spatial softmax
-- **Optimization**: AdamW with weight decay
-- **Scheduling**: Warmup + cosine annealing
-- **Regularization**: Dropout, label smoothing
-- **Monitoring**: Training curves, validation metrics
+### Stage 1: Pretraining
+1. **Data Loading**: Load images and keypoint annotations
+2. **YOLO Segmentation**: Extract bed sheet masks using fine-tuned YOLO
+3. **Model Training**: Train from scratch with basic optimizations
+4. **Model Saving**: Save pretrained model for post-training
 
-### Quantization Benefits
-- **Model Size**: ~75% reduction
-- **Inference Speed**: 2-4x faster
-- **Memory Usage**: Significantly reduced
-- **Accuracy**: Minimal degradation (<1%)
+### Stage 2: Post-Training
+1. **Load Pretrained Model**: Load from Stage 1 results
+2. **Advanced Augmentation**: Apply rotation, flipping, and mixup
+3. **Optimized Training**: Train with torch.compile() and early stopping
+4. **Evaluation**: Evaluate on test set and visualize results
 
-## 🔧 Advanced Features
+## 🚀 Deployment
 
-### Data Augmentation Pipeline
-- **RandomRotateFlip**: Geometric transformations
-- **ColorJitter**: Color space augmentation
-- **GaussianNoise**: Noise injection
-- **Cutout**: Occlusion simulation
-- **MixUp**: Sample mixing for regularization
-- **StrongerAugmentation**: Albumentations integration
+### Production Deployment
+1. **Complete Stage 1**: Pretrain the model
+2. **Complete Stage 2**: Post-train with optimizations
+3. **Deploy Model**: Use the final optimized model for inference
 
-### Active Learning
-- **Uncertainty Sampling**: Entropy-based sample selection
-- **Dynamic Batch Selection**: Focuses on challenging samples
-- **Efficient Training**: Reduces required training samples
+### Real-time Inference
+```python
+import torch
+from src.models import HybridKeypointNet
 
-### Model Export
-- **ONNX Format**: Cross-platform deployment
-- **GGUF Format**: Optimized for inference
-- **Quantized Models**: Ready for edge deployment
+# Load trained model
+model = HybridKeypointNet(...)
+model.load_state_dict(torch.load("models/keypoint_model_vit_post.pth"))
+model.eval()
 
-## 📈 Training Monitoring
+# Run inference
+with torch.no_grad():
+    output = model(input_tensor)
+```
 
-The training pipeline provides comprehensive monitoring:
-- **Real-time Loss Tracking**: Per-epoch loss visualization
-- **Validation Metrics**: Regular evaluation on test set
-- **Model Checkpoints**: Automatic saving at intervals
-- **Performance Comparison**: Regular vs quantized model metrics
-- **Visualization**: Keypoint detection results
+## 📝 Usage Examples
 
-## 🛠️ Development
+### Complete Training Workflow
+```bash
+# Step 1: Pretraining
+python keypoint_detection_model_training.py
 
-### Adding New Models
-1. Create model class in `src/models/`
-2. Add to `src/models/__init__.py`
-3. Update training pipeline if needed
+# Step 2: Post-training optimization
+python post_keypoint_detection_model_training.py config_quantization_fixed.json
+```
 
-### Custom Training
-1. Modify `DEFAULT_CONFIG` in training script
-2. Add custom augmentation in augmentation classes
-3. Implement custom loss functions if needed
+### Custom Configuration
+```python
+# Modify config_quantization_fixed.json for your needs
+{
+    "num_epochs": 100,
+    "batch_size": 32,
+    "learning_rate": 0.0005,
+    "early_stopping_patience": 20
+}
+```
 
-### Quantization Customization
-1. Adjust QAT parameters in configuration
-2. Modify quantization utilities in `src/utils/quantization_utils.py`
-3. Add custom quantization schemes
+## 🔮 Future Improvements
 
-## 📝 Recent Updates
+### Planned Features
+- **TensorRT Optimization**: 2-5x faster inference with TensorRT conversion
+- **Quantization Support**: INT8 quantization for edge deployment
+- **Model Export**: ONNX and TorchScript export capabilities
+- **Advanced Augmentation**: More sophisticated data augmentation strategies
+- **Active Learning**: Uncertainty sampling for efficient training
 
-### Latest Improvements
-- ✅ **Seamless Training Pipeline**: Regular + QAT in single script
-- ✅ **Model Preservation**: No overwriting of pretrained models
-- ✅ **Advanced Augmentation**: Comprehensive data augmentation
-- ✅ **Performance Optimization**: torch.compile and mixed precision
-- ✅ **Quantization Support**: Full QAT pipeline with 50 epochs
-- ✅ **Active Learning**: Uncertainty sampling for efficient training
-- ✅ **Model Export**: ONNX and GGUF support
+### TensorRT Integration (Future)
+```bash
+# Convert to TensorRT for optimized inference
+python convert_to_tensorrt.py \
+    --model_path models/keypoint_model_vit_post.pth \
+    --precision fp16 \
+    --test_inference
 
-### Architecture Changes
-- **HybridKeypointNet**: Main model with YOLO + ViT
-- **Efficient Variants**: Lightweight alternatives
-- **Quantization Pipeline**: Post-training quantization support
+# Benchmark performance
+python test_tensorrt_inference.py \
+    --pytorch_model models/keypoint_model_vit_post.pth \
+    --tensorrt_model models/keypoint_model_vit_post.trt
+```
 
 ## 🤝 Contributing
 
@@ -242,12 +216,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- YOLOv8 for backbone architecture
-- Vision Transformer for global context modeling
-- PyTorch for the deep learning framework
-- VIA for annotation tools
-- RealSense for depth data collection
-
----
-
-**Note**: This project is actively maintained and updated with the latest deep learning techniques for optimal keypoint detection performance.
+- YOLO architecture by Ultralytics
+- Vision Transformer by Google Research
+- PyTorch by Facebook Research
