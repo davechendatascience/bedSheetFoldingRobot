@@ -42,14 +42,6 @@ from src.models.efficient_keypoint_net import EfficientViTKeypointNet
 from src.utils import kl_heatmap_loss
 from shared.functions import get_keypoints_for_image, resize_image_and_keypoints
 
-# Import quantization utilities (kept for later investigation)
-from src.utils.quantization_utils import (
-    create_quantized_model_structure,
-    prepare_model_for_qat,
-    convert_to_quantized,
-    export_model_pipeline
-)
-
 # Default configuration
 DEFAULT_CONFIG = {
     "seed": 42,
@@ -67,15 +59,8 @@ DEFAULT_CONFIG = {
     "model_save_path": "models/keypoint_model_vit_post.pth",
     "save_interval": 100,
     "results_dir": "results",
-    "use_quantization": False,
     "pretrained_path": "models/keypoint_model_vit.pth",
-    "export_model": True,
-    "export_name": "keypoint_model_depth",
-    "export_dir": "models",
-    "export_formats": ["onnx", "gguf"],
-    "qat_epochs": 50,
     "freeze_backbone": False,
-    "qat_learning_rate": 2e-5,
     "use_augmentation": True,
     "use_mixup": True,
     "mixup_alpha": 0.2,
@@ -402,7 +387,7 @@ def create_model():
     
     return model
 
-def train_model(model, trainloader, testloader, num_epochs=300, load_model=False, save_path=None):
+def train_model(model, trainloader, valloader, testloader, num_epochs=300, load_model=False, save_path=None, use_mixup=True, mixup_alpha=0.2, early_stopping_patience=20):
     """Train the model using the working logic from keypoint_detection_model_training.py"""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
@@ -418,9 +403,16 @@ def train_model(model, trainloader, testloader, num_epochs=300, load_model=False
     
     if not load_model:
         optimizer = optim.AdamW(compiled_model.parameters(), lr=1e-5)
+        
+        # Early stopping setup
+        best_val_loss = float('inf')
+        patience_counter = 0
+        training_history = {'train_loss': [], 'val_loss': []}
 
         for epoch in range(num_epochs):
             time_start = time.time()
+            
+            # Training phase
             compiled_model.train()
             running_loss = 0.0
 
@@ -429,39 +421,81 @@ def train_model(model, trainloader, testloader, num_epochs=300, load_model=False
                 keypoints = batch["keypoints"].to(device)
                 optimizer.zero_grad()
 
+                # Apply mixup if enabled
+                if use_mixup:
+                    images, keypoints = mixup_data(images, keypoints, alpha=mixup_alpha)
+
                 with autocast("cuda", dtype=torch.float16):      # AMP context, not forcing .half()
                     outputs = compiled_model(images)
                     keypoints_blur = batch_gaussian_blur(keypoints, kernel_size=31, sigma=3)
                     
-                    # active learning: Uncertainty Sampling using entropy as the uncertainty metric
-                    entropies = batch_entropy(outputs)
-                    k = images.size(0) // 2
-                    topk_vals, topk_idx = torch.topk(entropies, k, largest=True)  # highest entropy first
-                    selected_outputs = outputs[topk_idx]
-                    selected_keypoints_blur = keypoints_blur[topk_idx]
-
-                    # calculate loss
-                    loss = kl_heatmap_loss(selected_outputs, selected_keypoints_blur.unsqueeze(1))
+                    # calculate loss on all samples (no active learning)
+                    loss = kl_heatmap_loss(outputs, keypoints_blur.unsqueeze(1))
 
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
                 running_loss += loss.item() * images.size(0)
             
-            print(f'Epoch {epoch+1}: Loss {running_loss / len(trainloader.dataset):.4f} time seconds: {time.time() - time_start}')
-
-        # save the model to the specified path or default
-        if save_path is None:
-            save_path = 'models/keypoint_model_vit_post.pth'
-        torch.save(compiled_model.state_dict(), save_path)
-        print(f"Model saved to: {save_path}")
+            train_loss = running_loss / len(trainloader.dataset)
+            
+            # Validation phase
+            compiled_model.eval()
+            val_loss = 0.0
+            
+            with torch.no_grad():
+                for batch in valloader:
+                    images = batch["image"].to(device)
+                    keypoints = batch["keypoints"].to(device)
+                    
+                    with autocast("cuda", dtype=torch.float16):
+                        outputs = compiled_model(images)
+                        keypoints_blur = batch_gaussian_blur(keypoints, kernel_size=31, sigma=3)
+                        loss = kl_heatmap_loss(outputs, keypoints_blur.unsqueeze(1))
+                    
+                    val_loss += loss.item() * images.size(0)
+            
+            val_loss = val_loss / len(valloader.dataset)
+            
+            # Store history
+            training_history['train_loss'].append(train_loss)
+            training_history['val_loss'].append(val_loss)
+            
+            print(f'Epoch {epoch+1}: Train Loss {train_loss:.4f}, Val Loss {val_loss:.4f}, Time: {time.time() - time_start:.2f}s')
+            
+            # Early stopping check
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                patience_counter = 0
+                # Save best model
+                if save_path is None:
+                    save_path = 'models/keypoint_model_vit_post.pth'
+                torch.save(compiled_model.state_dict(), save_path)
+                print(f"New best model saved with validation loss: {val_loss:.4f}")
+            else:
+                patience_counter += 1
+                print(f"Validation loss didn't improve. Patience: {patience_counter}/{early_stopping_patience}")
+                
+                if patience_counter >= early_stopping_patience:
+                    print(f"Early stopping triggered after {epoch+1} epochs")
+                    break
+        
+        # Save training history
+        history_path = save_path.replace('.pth', '_history.json') if save_path else 'models/keypoint_model_vit_post_history.json'
+        with open(history_path, 'w') as f:
+            json.dump(training_history, f, indent=2)
+        print(f"Training history saved to: {history_path}")
+        
+        # Plot training curves
+        plot_training_curves(training_history, save_path.replace('.pth', '_training_plot.png') if save_path else 'models/keypoint_model_vit_post_training_plot.png')
+        
     else:
         # Load from the specified path or default
         load_path = save_path if save_path else 'models/keypoint_model_vit_post.pth'
         compiled_model.load_state_dict(torch.load(load_path, map_location=device))
         compiled_model.eval()
     
-    return compiled_model
+    return compiled_model, training_history if 'training_history' in locals() else None
 
 def evaluate_model(model, testloader):
     """Evaluate the model on test set"""
@@ -500,6 +534,39 @@ def evaluate_model(model, testloader):
     
     print(f'Validation Loss: {val_loss / len(testloader.dataset):.4f}')
     return val_loss / len(testloader.dataset)
+
+def plot_training_curves(history, save_path):
+    """Plot training and validation loss curves"""
+    try:
+        plt.figure(figsize=(12, 4))
+        
+        # Plot training and validation loss
+        plt.subplot(1, 2, 1)
+        plt.plot(history['train_loss'], label='Training Loss', color='blue')
+        plt.plot(history['val_loss'], label='Validation Loss', color='red')
+        plt.title('Training and Validation Loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        
+        # Plot loss difference
+        plt.subplot(1, 2, 2)
+        loss_diff = [abs(train - val) for train, val in zip(history['train_loss'], history['val_loss'])]
+        plt.plot(loss_diff, label='|Train - Val| Loss', color='green')
+        plt.title('Loss Difference (Overfitting Indicator)')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss Difference')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.close()
+        print(f"Training curves saved to: {save_path}")
+        
+    except Exception as e:
+        print(f"Warning: Could not plot training curves: {e}")
 
 def visualize_model_architecture(model):
     """Visualize the model architecture"""
@@ -614,12 +681,12 @@ def main_training_pipeline(config: Dict[str, Any]) -> Tuple[Any, Dict[str, List[
     model = create_model()
     print(f"Model created with {sum(p.numel() for p in model.parameters()):,} parameters")
     
-    # Load pretrained model if specified (for regular training only)
+    # Load pretrained model if specified
     if config.get("pretrained_path") and os.path.exists(config["pretrained_path"]):
         print(f"Loading pretrained model from {config['pretrained_path']}")
         state_dict = torch.load(config["pretrained_path"], map_location=device)
         
-        # Handle quantized model state dict with _orig_mod prefixes
+        # Handle model state dict with _orig_mod prefixes
         new_state_dict = {}
         for key, value in state_dict.items():
             if key.startswith("_orig_mod."):
@@ -638,137 +705,43 @@ def main_training_pipeline(config: Dict[str, Any]) -> Tuple[Any, Dict[str, List[
     else:
         print("No pretrained model found, starting from scratch")
     
-    # Note: Quantization preparation will be done after regular training if enabled
-    
     # Train model using the working logic
     print("Starting regular training...")
     load_model = config.get("load_model", False)
     num_epochs = config.get("num_epochs", 300)
-    trained_model = train_model(model, train_loader, test_loader, num_epochs=num_epochs, load_model=load_model, save_path=config["model_save_path"])
+    use_mixup = config.get("use_mixup", True)
+    mixup_alpha = config.get("mixup_alpha", 0.2)
+    early_stopping_patience = config.get("early_stopping_patience", 20)
+    trained_model, training_history = train_model(
+        model, 
+        train_loader, 
+        val_loader,
+        test_loader, 
+        num_epochs=num_epochs, 
+        load_model=load_model, 
+        save_path=config["model_save_path"],
+        use_mixup=use_mixup,
+        mixup_alpha=mixup_alpha,
+        early_stopping_patience=early_stopping_patience
+    )
     
     # Evaluate regular model
     print("Evaluating regular model...")
     val_loss = evaluate_model(trained_model, test_loader)
     print(f"Regular model validation loss: {val_loss:.4f}")
     
-    # Add quantization training if enabled
-    if config.get("use_quantization", False):
-        print("\n" + "="*50)
-        print("Starting quantization-aware training (QAT)...")
-        print("="*50)
-        
-        # Load the model from regular training result for quantization training
-        regular_training_result = config["model_save_path"]
-        if os.path.exists(regular_training_result):
-            print(f"Loading model from regular training result: {regular_training_result}")
-            state_dict = torch.load(regular_training_result, map_location=device)
-            
-            # Handle quantized model state dict with _orig_mod prefixes
-            new_state_dict = {}
-            for key, value in state_dict.items():
-                if key.startswith("_orig_mod."):
-                    new_key = key[10:]  # Remove "_orig_mod." prefix
-                    new_state_dict[new_key] = value
-                else:
-                    new_state_dict[key] = value
-            
-            # Load with strict=False to handle any remaining mismatches
-            missing_keys, unexpected_keys = model.load_state_dict(new_state_dict, strict=False)
-            if missing_keys:
-                print(f"Warning: Missing keys: {len(missing_keys)}")
-            if unexpected_keys:
-                print(f"Warning: Unexpected keys: {len(unexpected_keys)}")
-            print("Regular training weights loaded successfully for QAT")
-        else:
-            print(f"Warning: Regular training result not found at {regular_training_result}")
-            print("Starting QAT from current model state")
-        
-        # Prepare model for quantization-aware training
-        model.train()  # Ensure model is in training mode for QAT preparation
-        model = prepare_model_for_qat(model)
-        print("Model prepared for quantization-aware training")
-        
-        # For QAT, we want to fine-tune the entire model, not freeze backbone
-        # This allows the model to adapt to quantization
-        if config.get("freeze_backbone", False):
-            for param in model.backbone.parameters():
-                param.requires_grad = False
-            print("Backbone frozen for QAT")
-        else:
-            print("Training entire model (including backbone) for QAT")
-        
-        # Use higher learning rate for QAT to allow adaptation to quantization
-        qat_lr = config.get("qat_learning_rate", 5e-5)
-        optimizer = optim.AdamW(
-            model.parameters(), 
-            lr=qat_lr, 
-            weight_decay=config.get("weight_decay", 5e-5)
-        )
-        
-        # Use a simpler, more stable learning rate schedule for QAT
-        qat_epochs = config.get("qat_epochs", 50)  # Default to 50 epochs as requested
-        
-        def qat_lr_lambda(epoch):
-            # Stage 1: Warmup (0 to 5)
-            if epoch < 5:
-                return float(epoch) / 5.0
-            
-            # Stage 2: High learning rate plateau (5 to 20)
-            elif epoch < 20:
-                return 1.0
-            
-            # Stage 3: Gradual decay (20 to 40)
-            elif epoch < 40:
-                progress = float(epoch - 20) / 20.0
-                return 1.0 - 0.6 * progress
-            
-            # Stage 4: Fine-tuning with very low LR (40 to end)
-            else:
-                progress = float(epoch - 40) / float(max(1, qat_epochs - 40))
-                return 0.4 * (1.0 - 0.5 * progress)  # Decay to 20% of original
-        
-        scheduler = optim.lr_scheduler.LambdaLR(optimizer, qat_lr_lambda)
-        print(f"Starting QAT for {qat_epochs} epochs with learning rate {qat_lr}")
-        print(f"Model parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
-        
-        # Use the working training logic but with QAT-specific parameters
-        quantized_model = train_model(model, train_loader, test_loader, num_epochs=qat_epochs, load_model=False, save_path=f"{config['model_save_path']}_qat.pth")
-        
-        # Convert to final quantized model
-        print("Converting to final quantized model...")
-        final_quantized_model = convert_to_quantized(quantized_model)
-        torch.save(final_quantized_model.state_dict(), f"{config['model_save_path']}_quantized.pth")
-        
-        # Evaluate quantized model
-        print("Evaluating quantized model...")
-        quantized_val_loss = evaluate_model(final_quantized_model, test_loader)
-        print(f"Quantized model validation loss: {quantized_val_loss:.4f}")
-        print(f"Performance comparison - Regular: {val_loss:.4f}, Quantized: {quantized_val_loss:.4f}")
-        
-        # Handle quantization export if enabled
-        if config.get("export_model", False):
-            print("Exporting quantized model...")
-            export_path = os.path.join(config.get("export_dir", "models"), config.get("export_name", "keypoint_model_quantized"))
-            export_formats = config.get("export_formats", ["onnx"])
-            
-            try:
-                export_model_pipeline(final_quantized_model, export_path, export_formats)
-                print(f"Quantized model exported to {export_path}")
-            except Exception as e:
-                print(f"Warning: Model export failed: {e}")
-        
-        # Return the quantized model for further use
-        trained_model = final_quantized_model
-    
     # Visualize model architecture
     print("Visualizing model architecture...")
     visualize_model_architecture(model)
     
-    # Create training history (simplified for now)
-    history = {
-        "train_loss": [val_loss],  # Simplified - in real implementation, track epoch losses
-        "val_loss": [val_loss]
-    }
+    # Use actual training history if available, otherwise create simplified version
+    if training_history is not None:
+        history = training_history
+    else:
+        history = {
+            "train_loss": [val_loss],  # Simplified - in real implementation, track epoch losses
+            "val_loss": [val_loss]
+        }
     
     print("Training completed!")
     return trained_model, history
