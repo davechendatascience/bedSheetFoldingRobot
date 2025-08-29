@@ -98,6 +98,28 @@ __pypackages__/
 celerybeat-schedule
 celerybeat.pid
 
+# Large model files and binaries
+*.pth
+*.pt
+*.trt
+*.onnx
+*.gguf
+*.bin
+*.safetensors
+models/*_quantized
+models/*_depth_quantized
+models/*.gguf
+models/*.trt
+models/*.onnx
+
+# Temporary and test files
+test_*.py
+*_test.py
+*_example.py
+*_inference.py
+convert_*.py
+requirements_tensorrt.txt
+
 # SageMath parsed files
 *.sage.py
 
