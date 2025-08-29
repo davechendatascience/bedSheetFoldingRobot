@@ -1,108 +1,108 @@
-# Bed Sheet Folding Robot - Keypoint Detection
+# 床單摺疊機器人 - 關鍵點檢測
 
-A comprehensive keypoint detection system for bed sheet folding robots using deep learning and computer vision techniques.
+一個使用深度學習和電腦視覺技術的床單摺疊機器人關鍵點檢測系統。
 
-## 🚀 Features
+## 🚀 功能特色
 
-- **Hybrid Keypoint Detection Model**: YOLO + Vision Transformer architecture
-- **Two-Stage Training Pipeline**: Pretraining + Post-training optimization
-- **Optimized Training Pipeline**: With `torch.compile()`, early stopping, and mixup augmentation
-- **Real-time Inference**: Optimized for real-time bed sheet keypoint detection
-- **Comprehensive Data Processing**: YOLO segmentation + keypoint annotation pipeline
+- **混合關鍵點檢測模型**：YOLO + Vision Transformer 架構
+- **兩階段訓練流程**：預訓練 + 後訓練優化
+- **優化訓練流程**：使用 `torch.compile()`、早停機制和 mixup 增強
+- **即時推理**：針對即時床單關鍵點檢測優化
+- **全面數據處理**：YOLO 分割 + 關鍵點註解流程
 
-## 📁 Project Structure
+## 📁 專案結構
 
 ```
 bedSheetFoldingRobot/
 ├── src/
-│   ├── models/                 # Model architectures
+│   ├── models/                 # 模型架構
 │   │   ├── hybrid_keypoint_net.py
 │   │   └── efficient_keypoint_net.py
-│   ├── utils/                  # Utility functions
-│   │   ├── model_utils.py      # YOLO backbone and model utilities
-│   │   └── tensorrt_utils.py   # TensorRT conversion utilities (future)
-│   └── training/               # Training pipeline
-├── shared/                     # Shared functions and utilities
-├── models/                     # Trained models and YOLO weights
-├── data/                       # Dataset and annotations
-├── results/                    # Training results and visualizations
-├── keypoint_detection_model_training.py  # Stage 1: Pretraining script
-├── post_keypoint_detection_model_training.py  # Stage 2: Post-training script
-├── convert_to_tensorrt.py      # TensorRT conversion script (future)
-└── test_tensorrt_inference.py  # Performance benchmarking (future)
+│   ├── utils/                  # 工具函數
+│   │   ├── model_utils.py      # YOLO 骨幹和模型工具
+│   │   └── tensorrt_utils.py   # TensorRT 轉換工具（未來）
+│   └── training/               # 訓練流程
+├── shared/                     # 共享函數和工具
+├── models/                     # 訓練模型和 YOLO 權重
+├── data/                       # 數據集和註解
+├── results/                    # 訓練結果和視覺化
+├── keypoint_detection_model_training.py  # 第一階段：預訓練腳本
+├── post_keypoint_detection_model_training.py  # 第二階段：後訓練腳本
+├── convert_to_tensorrt.py      # TensorRT 轉換腳本（未來）
+└── test_tensorrt_inference.py  # 效能基準測試（未來）
 ```
 
-## 🛠️ Installation
+## 🛠️ 安裝
 
-1. **Clone the repository:**
+1. **複製儲存庫：**
 ```bash
 git clone <repository-url>
 cd bedSheetFoldingRobot
 ```
 
-2. **Install dependencies:**
+2. **安裝依賴：**
 ```bash
 pip install -r requirements.txt
 ```
 
-## 🎯 Quick Start
+## 🎯 快速開始
 
-### Stage 1: Pretraining
+### 第一階段：預訓練
 
-First, you need to pretrain the model using the original training script:
+首先，您需要使用原始訓練腳本預訓練模型：
 
 ```bash
-# Stage 1: Pretrain the model
+# 第一階段：預訓練模型
 python keypoint_detection_model_training.py
 ```
 
-This will:
-- Train the model from scratch on your dataset
-- Save the pretrained model to `models/keypoint_model_vit.pth`
-- Establish the baseline performance
+這將會：
+- 在您的數據集上從頭開始訓練模型
+- 將預訓練模型儲存到 `models/keypoint_model_vit.pth`
+- 建立基準效能
 
-### Stage 2: Post-Training Optimization
+### 第二階段：後訓練優化
 
-After pretraining, use the post-training script for optimization:
+預訓練後，使用後訓練腳本進行優化：
 
 ```bash
-# Stage 2: Post-training with optimizations
+# 第二階段：後訓練優化
 python post_keypoint_detection_model_training.py config_quantization_fixed.json
 ```
 
-**Configuration Options:**
-- `num_epochs`: Number of training epochs (default: 50)
-- `batch_size`: Batch size for training (default: 16)
-- `learning_rate`: Learning rate (default: 0.001)
-- `early_stopping_patience`: Early stopping patience (default: 10)
-- `use_mixup`: Enable mixup augmentation (default: true)
+**配置選項：**
+- `num_epochs`：訓練輪數（預設：50）
+- `batch_size`：批次大小（預設：16）
+- `learning_rate`：學習率（預設：0.001）
+- `early_stopping_patience`：早停耐心值（預設：10）
+- `use_mixup`：啟用 mixup 增強（預設：true）
 
-## 🏗️ Model Architecture
+## 🏗️ 模型架構
 
-### Hybrid Keypoint Network
-- **Backbone**: YOLO11L-pose (first 12 layers)
-- **Head**: Vision Transformer for keypoint detection
-- **Output**: Heatmap-based keypoint predictions
-- **Input**: 128x128 RGB images
-- **Parameters**: ~100M parameters
+### 混合關鍵點網路
+- **骨幹**：YOLO11L-pose（前12層）
+- **頭部**：用於關鍵點檢測的 Vision Transformer
+- **輸出**：基於熱力圖的關鍵點預測
+- **輸入**：128x128 RGB 圖像
+- **參數**：約100M 參數
 
-### Key Features
-- **torch.compile()**: Optimized training with PyTorch 2.0 compilation
-- **Early Stopping**: Automatic training termination on validation loss plateau
-- **Mixup Augmentation**: Improved generalization with mixup data augmentation
-- **Best Model Saving**: Automatically saves the best model based on validation loss
+### 主要特色
+- **torch.compile()**：使用 PyTorch 2.0 編譯優化訓練
+- **早停機制**：基於驗證損失平台的自動訓練終止
+- **Mixup 增強**：使用 mixup 數據增強改善泛化能力
+- **最佳模型儲存**：基於驗證損失自動儲存最佳模型
 
-## 📊 Performance
+## 📊 效能
 
-### Training Optimizations
-- **torch.compile()**: ~20-30% faster training
-- **Mixed Precision**: FP16 training for memory efficiency
-- **Gradient Clipping**: Stable training with gradient clipping
-- **Learning Rate Scheduling**: Adaptive learning rate scheduling
+### 訓練優化
+- **torch.compile()**：約20-30% 更快的訓練
+- **混合精度**：FP16 訓練以節省記憶體
+- **梯度裁剪**：穩定的梯度裁剪訓練
+- **學習率調度**：自適應學習率調度
 
-## 🔧 Configuration
+## 🔧 配置
 
-### Training Configuration (`config_quantization_fixed.json`)
+### 訓練配置（`config_quantization_fixed.json`）
 ```json
 {
     "model_name": "HybridKeypointNet",
@@ -121,56 +121,56 @@ python post_keypoint_detection_model_training.py config_quantization_fixed.json
 }
 ```
 
-## 📈 Training Pipeline
+## 📈 訓練流程
 
-### Stage 1: Pretraining
-1. **Data Loading**: Load images and keypoint annotations
-2. **YOLO Segmentation**: Extract bed sheet masks using fine-tuned YOLO
-3. **Model Training**: Train from scratch with basic optimizations
-4. **Model Saving**: Save pretrained model for post-training
+### 第一階段：預訓練
+1. **數據載入**：載入圖像和關鍵點註解
+2. **YOLO 分割**：使用微調的 YOLO 提取床單遮罩
+3. **模型訓練**：使用基本優化從頭開始訓練
+4. **模型儲存**：儲存預訓練模型供後訓練使用
 
-### Stage 2: Post-Training
-1. **Load Pretrained Model**: Load from Stage 1 results
-2. **Advanced Augmentation**: Apply rotation, flipping, and mixup
-3. **Optimized Training**: Train with torch.compile() and early stopping
-4. **Evaluation**: Evaluate on test set and visualize results
+### 第二階段：後訓練
+1. **載入預訓練模型**：從第一階段結果載入
+2. **進階增強**：應用旋轉、翻轉和 mixup
+3. **優化訓練**：使用 torch.compile() 和早停機制訓練
+4. **評估**：在測試集上評估並視覺化結果
 
-## 🚀 Deployment
+## 🚀 部署
 
-### Production Deployment
-1. **Complete Stage 1**: Pretrain the model
-2. **Complete Stage 2**: Post-train with optimizations
-3. **Deploy Model**: Use the final optimized model for inference
+### 生產部署
+1. **完成第一階段**：預訓練模型
+2. **完成第二階段**：後訓練優化
+3. **部署模型**：使用最終優化模型進行推理
 
-### Real-time Inference
+### 即時推理
 ```python
 import torch
 from src.models import HybridKeypointNet
 
-# Load trained model
+# 載入訓練模型
 model = HybridKeypointNet(...)
 model.load_state_dict(torch.load("models/keypoint_model_vit_post.pth"))
 model.eval()
 
-# Run inference
+# 執行推理
 with torch.no_grad():
     output = model(input_tensor)
 ```
 
-## 📝 Usage Examples
+## 📝 使用範例
 
-### Complete Training Workflow
+### 完整訓練工作流程
 ```bash
-# Step 1: Pretraining
+# 步驟1：預訓練
 python keypoint_detection_model_training.py
 
-# Step 2: Post-training optimization
+# 步驟2：後訓練優化
 python post_keypoint_detection_model_training.py config_quantization_fixed.json
 ```
 
-### Custom Configuration
+### 自訂配置
 ```python
-# Modify config_quantization_fixed.json for your needs
+# 根據需求修改 config_quantization_fixed.json
 {
     "num_epochs": 100,
     "batch_size": 32,
@@ -179,43 +179,35 @@ python post_keypoint_detection_model_training.py config_quantization_fixed.json
 }
 ```
 
-## 🔮 Future Improvements
+## 🔮 未來改進
 
-### Planned Features
-- **TensorRT Optimization**: 2-5x faster inference with TensorRT conversion
-- **Quantization Support**: INT8 quantization for edge deployment
-- **Model Export**: ONNX and TorchScript export capabilities
-- **Advanced Augmentation**: More sophisticated data augmentation strategies
-- **Active Learning**: Uncertainty sampling for efficient training
+### 計劃功能
+- **TensorRT 優化**：使用 TensorRT 轉換實現2-5倍更快的推理
+- **量化支援**：INT8 量化用於邊緣部署
+- **模型匯出**：ONNX 和 TorchScript 匯出功能
+- **進階增強**：更複雜的數據增強策略
+- **主動學習**：不確定性採樣用於高效訓練
 
-### TensorRT Integration (Future)
+### TensorRT 整合（未來）
 ```bash
-# Convert to TensorRT for optimized inference
+# 轉換為 TensorRT 以優化推理
 python convert_to_tensorrt.py \
     --model_path models/keypoint_model_vit_post.pth \
     --precision fp16 \
     --test_inference
 
-# Benchmark performance
+# 效能基準測試
 python test_tensorrt_inference.py \
     --pytorch_model models/keypoint_model_vit_post.pth \
     --tensorrt_model models/keypoint_model_vit_post.trt
 ```
 
-## 🤝 Contributing
+## 📄 授權
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+本專案採用 MIT 授權條款 - 詳見 LICENSE 檔案。
 
-## 📄 License
+## 🙏 致謝
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- YOLO architecture by Ultralytics
-- Vision Transformer by Google Research
-- PyTorch by Facebook Research
+- YOLO 架構由 Ultralytics 提供
+- Vision Transformer 由 Google Research 提供
+- PyTorch 由 Facebook Research 提供
